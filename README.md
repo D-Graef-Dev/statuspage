@@ -44,17 +44,31 @@ One round without the web server:
 
 The config is checked with Pydantic at startup. Unknown fields or wrong types stop the start.
 
+## Docker
+
+```bash
+docker build -t statuspage:dev .
+docker run -d --name statuspage --read-only --cap-drop ALL --security-opt no-new-privileges \
+  -p 127.0.0.1:8000:8000 \
+  --mount type=bind,source=$PWD/config.toml,target=/config/config.toml,readonly \
+  statuspage:dev
+```
+
+Runs as `nobody` (65534) with a read-only filesystem. The healthcheck calls `/healthz`.
+
+Tested on the server in the `monitoring` network. All checks worked, including `Monitoring`.
+
 ## Known limitations
 
 - Runs on the same server it checks. If the server is down, the page is down too.
-- The `Monitoring` check uses the Docker network name `grafana`. It only works on the server, locally it is always down. Not tested on the server yet.
+- The `Monitoring` check only works when the container is in the `monitoring` Docker network.
 - Admin checks give wrong results when run from a machine inside the VPN.
 - Only direct dependencies are pinned. FastAPI's own dependencies are not locked yet.
 - State is only kept in memory. No history after a restart.
 
 ## Planned
 
-- Dockerfile (non-root, read-only), image on GHCR
+- Image on GHCR
 - GitHub Action: tests, build, Trivy scan
 - Deployment on the server behind Traefik
 - SQLite history with uptime and incidents
