@@ -1,0 +1,47 @@
+# Builds the image and pushes it to GHCR when a version tag is pushed (e.g. v0.1.0).
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+# Only what the job needs: read the code, write the package.
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    runs-on: ubuntu-24.04
+    steps:
+      # Actions are pinned to a commit SHA. A tag like v7 can be moved, a SHA can not.
+      # persist-credentials: false, the token is not needed after the checkout.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # GITHUB_TOKEN is created by GitHub for this run. No own secret needed.
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Image tag from the Git tag: v0.1.0 -> 0.1.0
+      # latest=false: metadata-action would add "latest" by default.
+      - id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ghcr.io/d-graef-dev/statuspage
+          tags: type=semver,pattern={{version}}
+          flavor: latest=false
+
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
